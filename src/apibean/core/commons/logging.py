@@ -23,13 +23,14 @@ def log_function(func):
     return wrapper
 
 
-def log_function_with(caller_info: Optional[Dict]):
+def log_function_with(caller_info: Optional[Dict], log_function_arguments: bool=False):
     def internal_inject(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             return log_function_wrapper(func, *args,**kwargs,
+                is_class_method=False,
                 caller_info=caller_info,
-                is_class_method=False)
+                log_function_arguments=log_function_arguments)
         return wrapper
     return internal_inject
 
@@ -42,13 +43,14 @@ def log_method(func):
     return wrapper
 
 
-def log_method_with(caller_info: Optional[Dict]):
+def log_method_with(caller_info: Optional[Dict], log_function_arguments: bool=False):
     def internal_inject(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             return log_function_wrapper(func, *args,**kwargs,
+                is_class_method=True,
                 caller_info=caller_info,
-                is_class_method=True)
+                log_function_arguments=log_function_arguments)
         return wrapper
     return internal_inject
 
@@ -91,3 +93,14 @@ def log_function_wrapper(func, *args,
     except: ...
 
     return result
+
+__all__ = [
+    "logger",
+    "get_caller_info",
+    "correlation_id_filter",
+    "CorrelationIdMiddleware",
+    "log_function",
+    "log_function_with",
+    "log_method",
+    "log_method_with",
+]
