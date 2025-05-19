@@ -18,19 +18,24 @@ def correlation_id_filter(record):
 def log_function(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        return log_function_wrapper(func, *args, **kwargs,
+        return log_function_wrapper(func, args, kwargs,
                 is_class_method=False)
     return wrapper
 
 
-def log_function_with(caller_info: Optional[Dict], log_function_arguments: bool=False):
+def log_function_with(caller_info: Optional[Dict],
+        log_function_arguments: bool=False, 
+        ignore_log_exception: bool=False,
+        **log_kwargs):
     def internal_inject(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            return log_function_wrapper(func, *args,**kwargs,
+            return log_function_wrapper(func, args, kwargs,
                 is_class_method=False,
+                log_function_arguments=log_function_arguments,
+                ignore_log_exception=ignore_log_exception,
                 caller_info=caller_info,
-                log_function_arguments=log_function_arguments)
+                **log_kwargs)
         return wrapper
     return internal_inject
 
@@ -38,19 +43,24 @@ def log_function_with(caller_info: Optional[Dict], log_function_arguments: bool=
 def log_method(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        return log_function_wrapper(func, *args, **kwargs,
+        return log_function_wrapper(func, args, kwargs,
                 is_class_method=True)
     return wrapper
 
 
-def log_method_with(caller_info: Optional[Dict], log_function_arguments: bool=False):
+def log_method_with(caller_info: Optional[Dict],
+        log_function_arguments: bool=False, 
+        ignore_log_exception: bool=False,
+        **log_kwargs):
     def internal_inject(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            return log_function_wrapper(func, *args,**kwargs,
+            return log_function_wrapper(func, args, kwargs,
                 is_class_method=True,
+                log_function_arguments=log_function_arguments,
+                ignore_log_exception=ignore_log_exception,
                 caller_info=caller_info,
-                log_function_arguments=log_function_arguments)
+                **log_kwargs)
         return wrapper
     return internal_inject
 
@@ -63,34 +73,38 @@ def get_caller_info():
     return dict(name=module_name, line=lineno)
 
 
-def log_function_wrapper(func, *args,
+def log_function_wrapper(func, args, kwargs,
         is_class_method: bool=True, log_function_arguments: bool=False,
-        caller_info: Optional[Dict]=None,
-        **kwargs):
+        ignore_log_begin: bool=False, ignore_log_end: bool=False,
+        ignore_log_exception: bool=False,
+        caller_info: Optional[Dict]=None):
     xlogger = logger if caller_info is None else logger.bind(caller_info=caller_info)
 
-    try:
+    if ignore_log_begin is not True:
         if log_function_arguments:
-            if is_class_method:
-                xlogger.debug(f"{func.__qualname__} method started with args={args[1:]}, kwargs={kwargs}")
-            else:
-                xlogger.debug(f"{func.__qualname__} function started with args={args}, kwargs={kwargs}")
+            try:
+                if is_class_method:
+                    xlogger.debug(f"{func.__qualname__} method started with args={args[1:]}, kwargs={kwargs}")
+                else:
+                    xlogger.debug(f"{func.__qualname__} function started with args={args}, kwargs={kwargs}")
+            except: ...
         else:
             if is_class_method:
                 xlogger.debug(f"{func.__qualname__} method started")
             else:
                 xlogger.debug(f"{func.__qualname__} function started")
-    except: ...
 
-    try:
+    if ignore_log_exception is not True:
+        try:
+            result = func(*args, **kwargs)
+        except Exception as error:
+            xlogger.exception(f"{func.__qualname__} failed with exception", exc_info=error)
+            raise error
+    else:
         result = func(*args, **kwargs)
-    except Exception as error:
-        xlogger.exception(f"{func.__qualname__} failed with exception", exc_info=error)
-        raise error
 
-    try:
+    if ignore_log_end is not True:
         xlogger.debug(f"{func.__qualname__} completed successfully")
-    except: ...
 
     return result
 
