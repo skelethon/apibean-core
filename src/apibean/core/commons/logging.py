@@ -6,13 +6,21 @@ from loguru import logger
 from asgi_correlation_id import CorrelationIdMiddleware
 from asgi_correlation_id.context import correlation_id
 
+
+KEY_CALLER_INFO = 'caller_info'
+KEY_CORRELATION_ID = 'correlation_id'
+KEY_LOGGING_EXTRA = 'extra'
+KEY_MODULE_NAME = 'name'
+KEY_LINE_NUMBER = 'line'
+
+
 def correlation_id_filter(record):
-    record['correlation_id'] = correlation_id.get()
-    caller_info = record['extra'].get('caller_info', None)
+    record[KEY_CORRELATION_ID] = correlation_id.get()
+    caller_info = record[KEY_LOGGING_EXTRA].get(KEY_CALLER_INFO, None)
     if caller_info is not None:
-        record['name'] = caller_info.get('name')
-        record['line'] = caller_info.get('line')
-    return record['correlation_id']
+        record[KEY_MODULE_NAME] = caller_info.get(KEY_MODULE_NAME)
+        record[KEY_LINE_NUMBER] = caller_info.get(KEY_LINE_NUMBER)
+    return record[KEY_CORRELATION_ID]
 
 
 def log_function(func):
