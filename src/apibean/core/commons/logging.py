@@ -85,6 +85,7 @@ def log_function_wrapper(func, args, kwargs,
         is_class_method: bool=True, log_function_arguments: bool=False,
         ignore_log_begin: bool=False, ignore_log_end: bool=False,
         ignore_log_exception: bool=False,
+        logging_level: str='DEBUG',
         caller_info: Optional[Dict]=None):
     xlogger = logger if caller_info is None else logger.bind(caller_info=caller_info)
 
@@ -92,15 +93,15 @@ def log_function_wrapper(func, args, kwargs,
         if log_function_arguments:
             try:
                 if is_class_method:
-                    xlogger.debug(f"{func.__qualname__} method started with args={args[1:]}, kwargs={kwargs}")
+                    xlogger.log(logging_level, f"{func.__qualname__} method started with args={args[1:]}, kwargs={kwargs}")
                 else:
-                    xlogger.debug(f"{func.__qualname__} function started with args={args}, kwargs={kwargs}")
+                    xlogger.log(logging_level, f"{func.__qualname__} function started with args={args}, kwargs={kwargs}")
             except: ...
         else:
             if is_class_method:
-                xlogger.debug(f"{func.__qualname__} method started")
+                xlogger.log(logging_level, f"{func.__qualname__} method started")
             else:
-                xlogger.debug(f"{func.__qualname__} function started")
+                xlogger.log(logging_level, f"{func.__qualname__} function started")
 
     if ignore_log_exception is not True:
         try:
@@ -112,7 +113,7 @@ def log_function_wrapper(func, args, kwargs,
         result = func(*args, **kwargs)
 
     if ignore_log_end is not True:
-        xlogger.debug(f"{func.__qualname__} completed successfully")
+        xlogger.log(logging_level, f"{func.__qualname__} completed successfully")
 
     return result
 

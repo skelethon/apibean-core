@@ -1,0 +1,26 @@
+[project]
+name = "apibean-core"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "loguru<1.0.0,>=0.5.3",
+    "asgi-correlation-id>=4.3.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest<8.0.0,>=7.4.3",
+    "pytest-cov<4.0.0,>=3.0.0",
+    "pydash>=8.0.5",
+    "mypy<2.0.0,>=1.8.0",
+]
+lint = [
+    "ruff<1.0.0,>=0.2.2",
+    "pre-commit<4.0.0,>=3.6.2",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["demo", "src"]
+testpaths = ["tests"]
+python_files = "test_*.py"
