@@ -1,6 +1,6 @@
 import inspect
 from functools import wraps
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 from loguru import logger
 
 from asgi_correlation_id import CorrelationIdMiddleware
@@ -32,6 +32,7 @@ def log_function(func):
 
 
 def log_function_with(caller_info: Optional[Dict],
+        arguments_extractor: Optional[Callable]=None,
         log_function_arguments: bool=False, 
         ignore_log_exception: bool=False,
         **log_kwargs):
@@ -40,6 +41,7 @@ def log_function_with(caller_info: Optional[Dict],
         def wrapper(*args, **kwargs):
             return log_function_wrapper(func, args, kwargs,
                 is_class_method=False,
+                arguments_extractor=arguments_extractor,
                 log_function_arguments=log_function_arguments,
                 ignore_log_exception=ignore_log_exception,
                 caller_info=caller_info,
@@ -57,6 +59,7 @@ def log_method(func):
 
 
 def log_method_with(caller_info: Optional[Dict],
+        arguments_extractor: Optional[Callable]=None,
         log_function_arguments: bool=False, 
         ignore_log_exception: bool=False,
         **log_kwargs):
@@ -65,6 +68,7 @@ def log_method_with(caller_info: Optional[Dict],
         def wrapper(*args, **kwargs):
             return log_function_wrapper(func, args, kwargs,
                 is_class_method=True,
+                arguments_extractor=arguments_extractor,
                 log_function_arguments=log_function_arguments,
                 ignore_log_exception=ignore_log_exception,
                 caller_info=caller_info,
@@ -82,7 +86,9 @@ def get_caller_info():
 
 
 def log_function_wrapper(func, args, kwargs,
-        is_class_method: bool=True, log_function_arguments: bool=False,
+        is_class_method: bool=True,
+        log_function_arguments: bool=False,
+        arguments_extractor: Optional[Callable]=None,
         ignore_log_begin: bool=False, ignore_log_end: bool=False,
         ignore_log_exception: bool=False,
         logging_level: str='DEBUG',
@@ -90,7 +96,18 @@ def log_function_wrapper(func, args, kwargs,
     xlogger = logger if caller_info is None else logger.bind(caller_info=caller_info)
 
     if ignore_log_begin is not True:
-        if log_function_arguments:
+        if callable(arguments_extractor):
+            try:
+                args_str = arguments_extractor(args[1:] if is_class_method else args, kwargs)
+            except Exception as exc:
+                args_str = f"<arguments_extractor-error: {str(exc)}>"
+
+            if not isinstance(args_str, str):
+                args_str = str(args_str)
+
+            xlogger.log(logging_level, f"{func.__qualname__} function started with: { args_str }")
+
+        elif log_function_arguments:
             try:
                 if is_class_method:
                     xlogger.log(logging_level, f"{func.__qualname__} method started with args={args[1:]}, kwargs={kwargs}")
