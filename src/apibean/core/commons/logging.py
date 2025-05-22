@@ -1,7 +1,10 @@
 import inspect
+import json
+
 from functools import wraps
 from typing import Callable, Dict, Optional
 from loguru import logger
+from pydantic import BaseModel
 
 from asgi_correlation_id import CorrelationIdMiddleware
 from asgi_correlation_id.context import correlation_id
@@ -134,6 +137,16 @@ def log_function_wrapper(func, args, kwargs,
 
     return result
 
+
+def jsonify_func_arg(arg):
+    if isinstance(arg, BaseModel):
+        return arg.model_dump_json(exclude_none=True)
+    try:
+        return json.dumps(arg, ensure_ascii=False, default=str)
+    except:
+        return None
+
+
 __all__ = [
     "logger",
     "get_caller_info",
@@ -143,4 +156,5 @@ __all__ = [
     "log_function_with",
     "log_method",
     "log_method_with",
+    "jsonify_func_arg",
 ]
