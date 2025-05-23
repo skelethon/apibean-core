@@ -12,8 +12,8 @@ setuptools.setup(
   download_url = 'https://github.com/skelethon/apibean-core/downloads',
   keywords = ['restful-api'],
   classifiers = [],
-  install_requires = open("requirements.txt").readlines(),
-  python_requires=">=3.8",
+  install_requires = open('requirements.txt').readlines(),
+  python_requires='>=3.8',
   package_dir = {'':'src'},
   packages = setuptools.find_packages('src'),
 )

@@ -133,7 +133,7 @@ def log_function_wrapper(func, args, kwargs,
         result = func(*args, **kwargs)
 
     if ignore_log_end is not True:
-        xlogger.log(logging_level, f"{func.__qualname__} completed successfully")
+        xlogger.log(logging_level, f"{func.__qualname__} ... done")
 
     return result
 
