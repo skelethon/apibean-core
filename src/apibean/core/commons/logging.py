@@ -92,6 +92,7 @@ def log_function_wrapper(func, args, kwargs,
         is_class_method: bool=True,
         log_function_arguments: bool=False,
         arguments_extractor: Optional[Callable]=None,
+        return_values_extractor: Optional[Callable]=None,
         ignore_log_begin: bool=False, ignore_log_end: bool=False,
         ignore_log_exception: bool=False,
         logging_level: str='DEBUG',
@@ -133,7 +134,18 @@ def log_function_wrapper(func, args, kwargs,
         result = func(*args, **kwargs)
 
     if ignore_log_end is not True:
-        xlogger.log(logging_level, f"{func.__qualname__} ... done")
+        if callable(return_values_extractor):
+            try:
+                return_values = return_values_extractor(result)
+            except Exception as exc:
+                return_values = f"<return_values_extractor-error: {str(exc)}>"
+
+            if not isinstance(return_values, str):
+                return_values = str(return_values)
+
+            xlogger.log(logging_level, f"{func.__qualname__} return with values '{return_values}'")
+        else:
+            xlogger.log(logging_level, f"{func.__qualname__} ... done")
 
     return result
 
@@ -147,6 +159,45 @@ def jsonify_func_arg(arg):
         return None
 
 
+from contextvars import ContextVar
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from loguru import logger
+
+DEFAULT_LOG_LEVEL = "DEBUG"
+
+# ContextVar lưu mức log hiện tại cho mỗi request
+current_log_level: ContextVar[str] = ContextVar("current_log_level", default=DEFAULT_LOG_LEVEL)
+
+# Hàm filter theo mức log trong ContextVar
+def dynamic_log_filter(record):
+    try:
+        level = current_log_level.get()
+        return logger.level(record["level"].name).no >= logger.level(level).no
+    except Exception:
+        return True  # fallback nếu có lỗi
+
+
+class LogLevelMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        header_level = request.headers.get("X-Log-Level", DEFAULT_LOG_LEVEL).upper()
+        try:
+            # Kiểm tra tính hợp lệ của log level
+            logger.level(header_level)
+            current_log_level.set(header_level)
+        except ValueError:
+            logger.warning(f"Invalid X-Log-Level: {header_level} — fallback to INFO")
+            current_log_level.set(DEFAULT_LOG_LEVEL)
+
+        response = await call_next(request)
+        return response
+
+
+def logging_support_filter(record):
+    correlation_id_filter(record)
+    return dynamic_log_filter(record)
+
+
 __all__ = [
     "logger",
     "get_caller_info",
@@ -157,4 +208,7 @@ __all__ = [
     "log_method",
     "log_method_with",
     "jsonify_func_arg",
+    "dynamic_log_filter",
+    "LogLevelMiddleware",
+    "logging_support_filter",
 ]
