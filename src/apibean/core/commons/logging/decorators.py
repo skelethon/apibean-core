@@ -6,26 +6,6 @@ from typing import Callable, Dict, Optional
 from loguru import logger
 from pydantic import BaseModel
 
-from asgi_correlation_id import CorrelationIdMiddleware
-from asgi_correlation_id.context import correlation_id
-
-
-KEY_CALLER_INFO = 'caller_info'
-KEY_CORRELATION_ID = 'correlation_id'
-KEY_LOGGING_EXTRA = 'extra'
-KEY_MODULE_NAME = 'name'
-KEY_LINE_NUMBER = 'line'
-
-
-def correlation_id_filter(record):
-    record[KEY_CORRELATION_ID] = correlation_id.get()
-    caller_info = record[KEY_LOGGING_EXTRA].get(KEY_CALLER_INFO, None)
-    if caller_info is not None:
-        record[KEY_MODULE_NAME] = caller_info.get(KEY_MODULE_NAME)
-        record[KEY_LINE_NUMBER] = caller_info.get(KEY_LINE_NUMBER)
-    return record[KEY_CORRELATION_ID]
-
-
 def log_function(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -157,58 +137,3 @@ def jsonify_func_arg(arg):
         return json.dumps(arg, ensure_ascii=False, default=str)
     except:
         return None
-
-
-from contextvars import ContextVar
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
-from loguru import logger
-
-DEFAULT_LOG_LEVEL = "DEBUG"
-
-# ContextVar lưu mức log hiện tại cho mỗi request
-current_log_level: ContextVar[str] = ContextVar("current_log_level", default=DEFAULT_LOG_LEVEL)
-
-# Hàm filter theo mức log trong ContextVar
-def dynamic_log_filter(record):
-    try:
-        level = current_log_level.get()
-        return logger.level(record["level"].name).no >= logger.level(level).no
-    except Exception:
-        return True  # fallback nếu có lỗi
-
-
-class LogLevelMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        header_level = request.headers.get("X-Log-Level", DEFAULT_LOG_LEVEL).upper()
-        try:
-            # Kiểm tra tính hợp lệ của log level
-            logger.level(header_level)
-            current_log_level.set(header_level)
-        except ValueError:
-            logger.warning(f"Invalid X-Log-Level: {header_level} — fallback to INFO")
-            current_log_level.set(DEFAULT_LOG_LEVEL)
-
-        response = await call_next(request)
-        return response
-
-
-def logging_support_filter(record):
-    correlation_id_filter(record)
-    return dynamic_log_filter(record)
-
-
-__all__ = [
-    "logger",
-    "get_caller_info",
-    "correlation_id_filter",
-    "CorrelationIdMiddleware",
-    "log_function",
-    "log_function_with",
-    "log_method",
-    "log_method_with",
-    "jsonify_func_arg",
-    "dynamic_log_filter",
-    "LogLevelMiddleware",
-    "logging_support_filter",
-]
