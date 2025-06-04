@@ -217,7 +217,7 @@ def setup_dynamic_loggers(options: Optional[Dict]):
         )
 
 # --- Middleware ---
-class DinaLogSinksMiddleware(BaseHTTPMiddleware):
+class DynaLogSinksMiddleware(BaseHTTPMiddleware):
     def __init__(self, *args, default_log_level: str = DEFAULT_LOG_LEVEL,
             default_log_sinks: str = "stdout", **kwargs):
         super().__init__(*args, **kwargs)

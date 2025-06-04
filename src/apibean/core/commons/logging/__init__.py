@@ -6,7 +6,8 @@ from .decorators import (logger, get_caller_info,
         jsonify_func_arg)
 
 
-from .dynamic_level import dyna_log_level_filter, DynaLogLevelMiddleware
+from .dynamic_level import setup_static_loggers, DynaLogLevelMiddleware
+from .dynamic_sinks import setup_dynamic_loggers, DynaLogSinksMiddleware
 
 
 __all__ = [
@@ -19,6 +20,8 @@ __all__ = [
     "log_method",
     "log_method_with",
     "jsonify_func_arg",
-    "dyna_log_level_filter",
+    "setup_static_loggers",
     "DynaLogLevelMiddleware",
+    "setup_dynamic_loggers",
+    "DynaLogSinksMiddleware",
 ]
