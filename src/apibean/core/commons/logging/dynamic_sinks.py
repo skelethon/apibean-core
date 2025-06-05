@@ -14,6 +14,7 @@ from .context import DEFAULT_LOG_LEVEL
 from .context import DEFAULT_STR_SINKS, AVAILABLE_SINKS, CURRENT_SINKS
 from . import context as ctx
 
+from .utils import format_time_pattern
 
 # --- TCP/UDP network sink ---
 class NetworkSink:
@@ -50,7 +51,8 @@ class OpensearchSink:
                 "timestamp": datetime.utcnow().isoformat(),
                 "message": msg
             }
-            httpx.post(self.endpoint, auth=self.http_auth, json=payload, timeout=60)
+            endpoint = format_time_pattern(self.endpoint)
+            httpx.post(endpoint, auth=self.http_auth, json=payload, timeout=60)
         except Exception as e:
             print(f"Opensearch error: {e}", file=sys.stderr)
 
