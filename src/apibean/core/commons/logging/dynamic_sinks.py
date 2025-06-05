@@ -192,16 +192,21 @@ class DynaLogSinksMiddleware(BaseHTTPMiddleware):
             ctx.request_log_level.set(ctx.default_log_level)
 
         sinks_header_value = request.headers.get("X-Log-Sinks",
-                request.headers.get("X-Log-Targets", ctx.default_str_sinks))
+                request.headers.get("X-Log-Targets", None))
 
-        if sinks_header_value == ctx.default_str_sinks:
+        if sinks_header_value is None:
+            ctx.request_set_sinks.set(ctx.default_set_sinks)
+        elif sinks_header_value == ctx.default_str_sinks:
             ctx.request_set_sinks.set(ctx.default_set_sinks)
         else:
-            requested = _convert_str_to_set(sinks_header_value)
-            valid_requested_sinks = requested & AVAILABLE_SINKS.keys()
-            if not valid_requested_sinks:
-                valid_requested_sinks = ctx.default_set_sinks
-            ctx.request_set_sinks.set(valid_requested_sinks)
+            requested_sinks = _convert_str_to_set(sinks_header_value)
+            if requested_sinks == ctx.default_set_sinks:
+                ctx.request_set_sinks.set(ctx.default_set_sinks)
+            else:
+                valid_requested_sinks = requested_sinks & AVAILABLE_SINKS.keys()
+                if not valid_requested_sinks:
+                    valid_requested_sinks = ctx.default_set_sinks
+                ctx.request_set_sinks.set(valid_requested_sinks)
 
         response = await call_next(request)
         return response
