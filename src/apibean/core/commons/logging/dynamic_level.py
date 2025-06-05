@@ -1,17 +1,16 @@
 import sys
 
-from contextvars import ContextVar
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from loguru import logger
 
 from .context import DEFAULT_LOG_LEVEL
-from .context import request_log_level
+from . import context as ctx
 
 # Hàm filter theo mức log trong ContextVar
 def dyna_log_level_filter(record):
     try:
-        level = request_log_level.get()
+        level = ctx.request_log_level.get()
         return logger.level(record["level"].name).no >= logger.level(level).no
     except Exception:
         return True  # fallback nếu có lỗi
@@ -19,14 +18,14 @@ def dyna_log_level_filter(record):
 
 class DynaLogLevelMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        header_level = request.headers.get("X-Log-Level", DEFAULT_LOG_LEVEL).upper()
+        header_level = request.headers.get("X-Log-Level", ctx.default_log_level).upper()
         try:
             # Kiểm tra tính hợp lệ của log level
             logger.level(header_level)
-            request_log_level.set(header_level)
+            ctx.request_log_level.set(header_level)
         except ValueError:
-            logger.warning(f"Invalid X-Log-Level: {header_level} — fallback to INFO")
-            request_log_level.set(DEFAULT_LOG_LEVEL)
+            logger.warning(f"Invalid X-Log-Level: {header_level} — fallback to {ctx.default_log_level}")
+            ctx.request_log_level.set(ctx.default_log_level)
 
         response = await call_next(request)
         return response

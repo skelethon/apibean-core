@@ -1,19 +1,19 @@
 import sys
 from contextvars import ContextVar
+from typing import Optional
 
 DEFAULT_LOG_LEVEL = "DEBUG"
 DEFAULT_STR_SINKS = "stdout"
 
 # --- ContextVars ---
-request_log_level: ContextVar[str] = ContextVar("request_log_level", default=DEFAULT_LOG_LEVEL)
-default_log_level: ContextVar[str] = ContextVar("default_log_level", default=DEFAULT_LOG_LEVEL)
+default_log_level: str = DEFAULT_LOG_LEVEL
+request_log_level: ContextVar[str] = ContextVar("request_log_level", default=default_log_level)
 
-request_set_sinks: ContextVar[set] = ContextVar("request_set_sinks", default={DEFAULT_STR_SINKS})
-default_set_sinks: ContextVar[set] = ContextVar("default_set_sinks", default={DEFAULT_STR_SINKS})
-default_str_sinks: ContextVar[str] = ContextVar("default_str_sinks", default=DEFAULT_STR_SINKS)
+default_str_sinks: str = DEFAULT_STR_SINKS
+default_set_sinks: set = {DEFAULT_STR_SINKS}
+request_set_sinks: ContextVar[set] = ContextVar("request_set_sinks", default=default_set_sinks)
 
-def set_default_sinks(new_str_sinks: str):
-    pass
+correlation_id: ContextVar[Optional[str]] = ContextVar('correlation_id', default=None)
 
 # --- Sink registry ---
 AVAILABLE_SINKS = {

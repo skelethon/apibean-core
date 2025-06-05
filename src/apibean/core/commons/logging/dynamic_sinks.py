@@ -8,12 +8,12 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from loguru import logger
 
-from .correlation import correlation_id, correlation_id_filter
+from .correlation import correlation_id_filter
 
 from .context import DEFAULT_LOG_LEVEL
-from .context import AVAILABLE_SINKS, CURRENT_SINKS
-from .context import request_log_level
-from .context import request_set_sinks
+from .context import DEFAULT_STR_SINKS, AVAILABLE_SINKS, CURRENT_SINKS
+from . import context as ctx
+
 
 # --- TCP/UDP network sink ---
 class NetworkSink:
@@ -71,8 +71,8 @@ def dyna_log_sinks_filter_of(sink_name: str):
     def filter_fn(record):
         try:
             correlation_id_filter(record)
-            sinks = request_set_sinks.get()
-            level = request_log_level.get()
+            sinks = ctx.request_set_sinks.get()
+            level = ctx.request_log_level.get()
             return (
                 sink_name in sinks
                 and logger.level(record["level"].name).no >= logger.level(level).no
@@ -166,38 +166,40 @@ def setup_dynamic_loggers(options: Optional[Dict]):
             **more,
         )
 
+def _convert_str_to_set(value):
+    return {t.strip() for t in value.split(",")} if isinstance(value, str) else None
+
 # --- Middleware ---
 class DynaLogSinksMiddleware(BaseHTTPMiddleware):
-    def __init__(self, *args, default_log_level: str = DEFAULT_LOG_LEVEL,
-            default_set_sinks: str = "stdout", **kwargs):
+    def __init__(self, *args, default_level: str = DEFAULT_LOG_LEVEL,
+            default_sinks: str = DEFAULT_STR_SINKS, **kwargs):
         super().__init__(*args, **kwargs)
-        self.default_log_level = default_log_level
-        self.default_set_sinks = default_set_sinks
-        self.default_sinks_set = self._convert_str_to_set(self.default_set_sinks)
 
-    def _convert_str_to_set(self, value):
-        return {t.strip() for t in value.split(",")} if isinstance(value, str) else None
+        ctx.default_log_level = default_level
+
+        ctx.default_str_sinks = default_sinks
+        ctx.default_set_sinks = _convert_str_to_set(ctx.default_str_sinks)
 
     async def dispatch(self, request: Request, call_next):
-        level = request.headers.get("X-Log-Level", self.default_log_level).upper()
+        level = request.headers.get("X-Log-Level", ctx.default_log_level).upper()
         try:
             logger.level(level)
-            request_log_level.set(level)
+            ctx.request_log_level.set(level)
         except ValueError:
-            logger.warning(f"Invalid log level: {level}, fallback to {self.default_log_level}")
-            request_log_level.set(self.default_log_level)
+            logger.warning(f"Invalid log level: {level}, fallback to {ctx.default_log_level}")
+            ctx.request_log_level.set(ctx.default_log_level)
 
         sinks_header_value = request.headers.get("X-Log-Sinks",
-                request.headers.get("X-Log-Targets", self.default_set_sinks))
+                request.headers.get("X-Log-Targets", ctx.default_str_sinks))
 
-        if sinks_header_value == self.default_set_sinks:
-            request_set_sinks.set(self.default_sinks_set)
+        if sinks_header_value == ctx.default_str_sinks:
+            ctx.request_set_sinks.set(ctx.default_set_sinks)
         else:
-            requested = self._convert_str_to_set(sinks_header_value)
+            requested = _convert_str_to_set(sinks_header_value)
             valid_requested_sinks = requested & AVAILABLE_SINKS.keys()
             if not valid_requested_sinks:
-                valid_requested_sinks = self.default_sinks_set
-            request_set_sinks.set(valid_requested_sinks)
+                valid_requested_sinks = ctx.default_set_sinks
+            ctx.request_set_sinks.set(valid_requested_sinks)
 
         response = await call_next(request)
         return response
