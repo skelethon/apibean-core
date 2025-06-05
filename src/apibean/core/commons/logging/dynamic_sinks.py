@@ -1,22 +1,19 @@
 import sys
 import socket
 import httpx
-import json
 from datetime import datetime
 from typing import Optional, Dict, Tuple
 
-from contextvars import ContextVar
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from loguru import logger
 
 from .correlation import correlation_id, correlation_id_filter
 
-DEFAULT_LOG_LEVEL = "DEBUG"
-
-# --- ContextVars ---
-active_sinks: ContextVar[set] = ContextVar("active_sinks", default={"stdout"})
-current_log_level: ContextVar[str] = ContextVar("current_log_level", default=DEFAULT_LOG_LEVEL)
+from .context import DEFAULT_LOG_LEVEL
+from .context import AVAILABLE_SINKS, CURRENT_SINKS
+from .context import request_log_level
+from .context import request_set_sinks
 
 # --- TCP/UDP network sink ---
 class NetworkSink:
@@ -74,8 +71,8 @@ def dyna_log_sinks_filter_of(sink_name: str):
     def filter_fn(record):
         try:
             correlation_id_filter(record)
-            sinks = active_sinks.get()
-            level = current_log_level.get()
+            sinks = request_set_sinks.get()
+            level = request_log_level.get()
             return (
                 sink_name in sinks
                 and logger.level(record["level"].name).no >= logger.level(level).no
@@ -84,53 +81,6 @@ def dyna_log_sinks_filter_of(sink_name: str):
             return True
     return filter_fn
 
-# --- Sink registry ---
-AVAILABLE_SINKS = {
-    "stdout": {
-        "enabled": True,
-        "target": sys.stdout,
-        "format": "<green>{time:HH:mm:ss}</green> | <level>{level}</level> | <cyan>{message}</cyan>",
-    },
-    "file": {
-        "enabled": True,
-        "type": "file",
-        "target": "/tmp/log.log",
-        "format": "{time} | {level} | {message} [file1]",
-        "rotation": "100 MB",
-        "retention": "10 days",
-        "compression": "tar.gz",
-        "colorize": False,
-    },
-    "null": {
-        "enabled": True,
-        "target": lambda _: None,
-        "format": "{message}",
-    },
-    "network": {
-        "enabled": False,
-        "params": {
-            "host": "localhost",
-            "port": 9009,
-        },
-        "format": "{message}",
-    },
-    "opensearch": {
-        "enabled": False,
-        "params": {
-            "url": "http://localhost:9200/logs/_doc",
-            "username": None,
-            "password": None,
-        },
-        "format": "{time} {level.name[0]} [{correlation_id}] {name}:{line} - {message}",
-    },
-    "syslog": {
-        "enabled": False,
-        "address": "/dev/log",
-        "format": "{level}: {message}",
-    },
-}
-
-CURRENT_SINKS = {}
 
 # --- Setup logger once ---
 def deep_merge_inplace(dict1, dict2):
@@ -219,11 +169,11 @@ def setup_dynamic_loggers(options: Optional[Dict]):
 # --- Middleware ---
 class DynaLogSinksMiddleware(BaseHTTPMiddleware):
     def __init__(self, *args, default_log_level: str = DEFAULT_LOG_LEVEL,
-            default_log_sinks: str = "stdout", **kwargs):
+            default_set_sinks: str = "stdout", **kwargs):
         super().__init__(*args, **kwargs)
         self.default_log_level = default_log_level
-        self.default_log_sinks = default_log_sinks
-        self.default_sinks_set = self._convert_str_to_set(self.default_log_sinks)
+        self.default_set_sinks = default_set_sinks
+        self.default_sinks_set = self._convert_str_to_set(self.default_set_sinks)
 
     def _convert_str_to_set(self, value):
         return {t.strip() for t in value.split(",")} if isinstance(value, str) else None
@@ -232,22 +182,22 @@ class DynaLogSinksMiddleware(BaseHTTPMiddleware):
         level = request.headers.get("X-Log-Level", self.default_log_level).upper()
         try:
             logger.level(level)
-            current_log_level.set(level)
+            request_log_level.set(level)
         except ValueError:
             logger.warning(f"Invalid log level: {level}, fallback to {self.default_log_level}")
-            current_log_level.set(self.default_log_level)
+            request_log_level.set(self.default_log_level)
 
         sinks_header_value = request.headers.get("X-Log-Sinks",
-                request.headers.get("X-Log-Targets", self.default_log_sinks))
+                request.headers.get("X-Log-Targets", self.default_set_sinks))
 
-        if sinks_header_value == self.default_log_sinks:
-            active_sinks.set(self.default_sinks_set)
+        if sinks_header_value == self.default_set_sinks:
+            request_set_sinks.set(self.default_sinks_set)
         else:
             requested = self._convert_str_to_set(sinks_header_value)
             valid_requested_sinks = requested & AVAILABLE_SINKS.keys()
             if not valid_requested_sinks:
                 valid_requested_sinks = self.default_sinks_set
-            active_sinks.set(valid_requested_sinks)
+            request_set_sinks.set(valid_requested_sinks)
 
         response = await call_next(request)
         return response
