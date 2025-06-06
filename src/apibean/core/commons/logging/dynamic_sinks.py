@@ -37,22 +37,50 @@ class OpensearchSink:
     def __init__(self, endpoint="http://localhost:9200/logs/_doc",
             http_auth: Optional[Tuple] = None,
             verify_certs: bool = False,
-            ssl_show_warn: bool = False):
+            ssl_show_warn: bool = False,
+            log_file_function: bool = False,
+            log_proc_thread: bool = False):
         self.endpoint = endpoint
         self.http_auth = http_auth
         self.verify_certs = verify_certs
         self.ssl_show_warn = ssl_show_warn
+        self.log_file_function = log_file_function
+        self.log_proc_thread = log_proc_thread
 
-    def __call__(self, message, **kwargs):
+    def __call__(self, message):
         try:
-            msg = message.strip()
-            payload = {
-                "requestId": msg[35:71],
-                "timestamp": datetime.utcnow().isoformat(),
-                "message": msg
+            record = message.record
+
+            log = {
+                "requestId": record.get("correlation_id"),
+                "timestamp": record["time"].isoformat(),
+                "level": record["level"].name,
+                "message": record["message"],
+                "logger": record["name"],
+                "line": record["line"],
             }
+
+            if self.log_file_function:
+                log.update({
+                    "file": record["file"].name,
+                    "function": record["function"],
+                })
+
+            if self.log_proc_thread:
+                log.update({
+                    "process": record["process"].id,
+                    "thread": record["thread"].id,
+                })
+
+            if record["exception"]:
+                log["exception"] = {
+                    "type": record["exception"].type.__name__,
+                    "value": str(record["exception"].value),
+                    "traceback": record["exception"].traceback.format()
+                }
+
             endpoint = format_time_pattern(self.endpoint)
-            httpx.post(endpoint, auth=self.http_auth, json=payload, timeout=60)
+            httpx.post(endpoint, auth=self.http_auth, json=log, timeout=60)
         except Exception as e:
             print(f"Opensearch error: {e}", file=sys.stderr)
 
