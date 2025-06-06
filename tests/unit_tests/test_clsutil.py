@@ -1,4 +1,4 @@
-from apibean.core.util.clsutil import find_classes_with_metaclass
+from apibean.core.utils.clsutil import find_classes_with_metaclass
 
 from example.metaclasses.my_meta import MyMeta
 import example.metaclasses
