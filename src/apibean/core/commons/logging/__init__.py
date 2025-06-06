@@ -9,6 +9,7 @@ from .decorators import (logger, get_caller_info,
 from .dynamic_level import setup_static_loggers, DynaLogLevelMiddleware
 from .dynamic_sinks import setup_dynamic_loggers, DynaLogSinksMiddleware
 
+from .routes import router as logging_router
 
 __all__ = [
     "logger",
@@ -24,4 +25,5 @@ __all__ = [
     "DynaLogLevelMiddleware",
     "setup_dynamic_loggers",
     "DynaLogSinksMiddleware",
+    "logging_router",
 ]
