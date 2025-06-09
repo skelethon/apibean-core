@@ -44,7 +44,7 @@ def _transform_sink_conf_to_info(name, config):
 
     return sink_info
 
-@router.get("/")
+@router.get("")
 async def get_loggers():
     founds = []
 

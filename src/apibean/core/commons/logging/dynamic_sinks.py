@@ -49,7 +49,7 @@ class OpensearchSink:
 
     def __call__(self, message):
         try:
-            record = message.record
+            record = message.record #loguru._handler.Message
 
             log = {
                 "requestId": record.get("correlation_id"),
